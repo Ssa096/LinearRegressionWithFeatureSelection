@@ -3,6 +3,7 @@
 We consider linear regression model:
 
 $$Y = X\beta + \epsilon$$
+
 , where:
 
 * $Y \in R^n$ - vector of response variable.
@@ -13,34 +14,27 @@ $$Y = X\beta + \epsilon$$
 We will assume that exogenous variables have been standarized to have zero means and unit Euclidean norm. The goal of
 this project is to find $\beta$ vector that minimize below function:
 
-$$
-\frac{1}{2}||y-X\beta||^2_2
-$$
+$$\frac{1}{2}||y-X\beta||^2_2$$
+
 subject to:
-$$
-||\beta||_0 \leq k
-$$
+
+$$||\beta||_0 \leq k$$
+
 ,where $||\beta||_0$ denotes number of elements in vector $\beta$ not equal to 0. Therefore, the presented problem can
 be understood as fitting the best possible linear regression number with number of feature selected being not higher
 than $k$. This problem will be solved with discrete first-order algorithms.
 
 Let's suppose that the problem is finidng $\beta$ that minimize the function below:
 
-$$
-g(\beta)
-$$
+$$g(\beta)$$
 
 subject to:
-$$
-||\beta||_0 \leq k
-$$
+$$||\beta||_0 \leq k$$
 
 where $g(\beta) \geq 0$ is a convex function which is Lipschitz continuous (there is a real constant $l > 0$ such
 that):
 
-$$
-|g(x_1) - g(x_2)| \leq l|x_1 - x_2|
-$$
+$$|g(x_1) - g(x_2)| \leq l|x_1 - x_2|$$
 
 for all real values of $x_1$ and $x_2$.
 
@@ -56,9 +50,7 @@ Output: First-order stationary solution $\beta^*$.
 
 1. Initialize with $\beta_1 \in R^p$ such that $||\beta_1||_0 \leq k$.
 2. For $m \geq 1$:
-   $$
-   \beta_{m+1} \in H_k(\beta_m - \frac{1}{L} \nabla g(\beta_m))
-   $$
+   $$\beta_{m+1} \in H_k(\beta_m - \frac{1}{L} \nabla g(\beta_m))$$
 3. Repeat step 2 until $g(\beta_m) - g(\beta_{m+1}) \leq \epsilon$.
 
 What is worth mentioning is that this algorithm needs just a few iterations to detect the final set of exogenous
@@ -70,21 +62,15 @@ be considered.
 
 The alternative for algorithm 1. Input parameters, output and first step are the same, second step is quite different:
 
-$$
-\beta_{m+1} = \lambda_m \eta_m + (1 - \lambda_m)\beta_m
-$$
+$$\beta_{m+1} = \lambda_m \eta_m + (1 - \lambda_m)\beta_m$$
 
 where:
 
-$$
-\eta_m \in H_k(\beta_m - \frac{1}{L} \nabla g(\beta_m))
-$$
+$$\eta_m \in H_k(\beta_m - \frac{1}{L} \nabla g(\beta_m))$$
 
 and:
 
-$$
-\lambda_m = arg min_\lambda g(\lambda \eta_m + (1 - \lambda)\beta_m)
-$$
+$$\lambda_m = arg min_\lambda g(\lambda \eta_m + (1 - \lambda)\beta_m)$$
 
 Stopping criteria differs too - it is either $|g(\eta_{m+1}) - g(\eta_m)| \leq \epsilon$ or total number of iterations
 is set at the beginning and after them $\eta_m$ which gave the lowest value of $g$ is returned. In addition, after
