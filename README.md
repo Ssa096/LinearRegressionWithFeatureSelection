@@ -124,17 +124,22 @@ The following examples are considered:
 ### Real data
 
 * Diabetes data[1] - avaible at sklearn. Orignally it consists of 10 response variables, but it will be transformed to
-  64
-  response variables. Then 350 random samples will be chosen and transform so that every feature
-  would be of zeros means and having Euclidean Norm equal to 1.
-* Leukemia data[3] - downloaded from
-  needs to be transformed.
+  64[2] - 9 of them will be squared, already existing, features and the remaining 45 will be interactions between the
+  original set of features. Then 350 random samples will be chosen and transform so that every feature would be of zeros
+  means and having Euclidean Norm equal to 1.
+* Leukemia data[3] - the preprocessing process here is a little bit more complex:
+    * All variables are standarized (zero means and unit Euclidean norm).
+    * 1000 features with highest (in terms of absolute value) correlation with response variable are selected.
+    * Semisynthetic y is generated: $y = X\beta^0 + \epsilon$, where:
+        * $\beta^0_i = 1$ if $i \leq 5$ else 0
+        * $\epsilon \sim \mathcal{N}(0, \sigma^2)$ - sigma is chosen so SNR=7.
 
 ### References
 
 1. Diabetes data import
    documentation - https://scikit-learn.org/stable/modules/generated/sklearn.datasets.load_diabetes.html
-2. [Efron et al. (2004)]https://plos.figshare.com/articles/dataset/The_microarray_dataset_of_leukemia_cancer_in_csv_format_/13658787?file=26216250
+2. Bradley Efron. Trevor Hastie. Iain Johnstone. Robert Tibshirani. "Least angle regression." Ann. Statist. 32 (2) 407 -
+   499, April 2004. https://doi.org/10.1214/009053604000000067
 3. Hameed, Shilan S.; Hassan, Rohayanti; Hassan, Wan Haslina; Muhammadsharif, Fahmi F.; Latiff, Liza Abdul (2021). The
    microarray dataset of leukemia cancer in csv format.. PLOS ONE.
    Dataset. https://doi.org/10.1371/journal.pone.0246039.s001
