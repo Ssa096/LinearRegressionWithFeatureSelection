@@ -92,7 +92,7 @@ For the sake of experiments, both synthetic and real data will be used.
 * $x_i \sim \mathcal{N}(0, \Sigma)$ be the i-th column of $X$ matrix (being standarized to have a unit Euclidean
   norm). All columns are independent.
 * $\Sigma := (\sigma_{ij})$ - covariance matrix.
-* $\epsilon_i $ - vector of i.i.d. errors such that $\epsilon_i \sim \mathcal{N}(0, \sigma^2)$.
+* $\epsilon$ - vector of i.i.d. errors such that $\epsilon_i \sim \mathcal{N}(0, \sigma^2)$.
 * $k_0$ - number of nonzeros in $\beta_0$.
 * SNR (Signal-to-Noise Ratio): SNR $= \frac{var(X^{'}\beta_0)}{\sigma^2}$
 
