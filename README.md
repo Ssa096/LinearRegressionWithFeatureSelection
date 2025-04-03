@@ -102,7 +102,7 @@ The following examples are considered:
    integer if necessary). $\rho$ is another parameter to explore ($\rho \in \{0.5, 0.8, 0.9\}$ is a good place to
    start).
 2. $\Sigma = I, k_0 = 5, \beta_0 = (1^{'}_{5 \times 1}, 0^{'}_{p-5 \times 1}) \in R^p$
-3. $\Sigma = I, k_0=10, \beta_i^0 = \frac{1}{2} + (10 - \frac{1}{2})\frac{i-1}{k_0}, i=1,...,10, \beta_i^0 = 0, i > 10 $
+3. $\Sigma = I, k_0=10, \beta_i^0 = \frac{1}{2} + (10 - \frac{1}{2})\frac{i-1}{k_0}, i=1,...,10, \beta_i^0 = 0, i > 10$
 4. $\Sigma = I, k_0=6, \beta^0 = (-10, -6, -2, 2, 6, 10, 0^{'}_{p-6})$
 
 ### Real data
