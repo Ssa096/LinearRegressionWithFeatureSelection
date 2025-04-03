@@ -2,9 +2,9 @@
 
 We consider linear regression model:
 
-$$
+$
 Y = X\beta + \epsilon
-$$
+$
 , where:
 
 * $Y \in R^n$ - vector of response variable.
