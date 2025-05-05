@@ -1,10 +1,10 @@
 # The problem of linear regression with feature selection, solved by first order methods.
 
-We consider linear regression model:
+We consider the linear regression model:
 
 $$Y = X\beta + \epsilon$$
 
-, where:
+where:
 
 * $Y \in R^n$ - vector of response variable.
 * $X \in R ^ {n \times p}$ - model of observations of exogenous variables.
@@ -12,7 +12,7 @@ $$Y = X\beta + \epsilon$$
 * $\epsilon \in R^n$ - vector of errors.
 
 We will assume that exogenous variables have been standarized to have zero means and unit Euclidean norm. The goal of
-this project is to find $\beta$ vector that minimize below function:
+this project is to find $\beta$ vector that minimize the below function:
 
 $$\frac{1}{2}||y-X\beta||^2_2$$
 
@@ -20,11 +20,11 @@ subject to:
 
 $$||\beta||_0 \leq k$$
 
-,where $||\beta||_0$ denotes number of elements in vector $\beta$ not equal to 0. Therefore, the presented problem can
+Where $||\beta||_0$ denotes number of elements in vector $\beta$ not equal to 0. Therefore, the presented problem can
 be understood as fitting the best possible linear regression number with number of feature selected being not higher
 than $k$. This problem will be solved with discrete first-order algorithms.
 
-Let's suppose that the problem is finidng $\beta$ that minimize the function below:
+Let us suppose that the problem is finidng $\beta$ that minimize the function below:
 
 $$g(\beta)$$
 
@@ -39,7 +39,7 @@ $$|g(x_1) - g(x_2)| \leq l|x_1 - x_2|$$
 for all real values of $x_1$ and $x_2$.
 
 When $g(\beta) = ||\beta - c||_2^2$ for a given $c$, then beta can be computed as follows: $\beta_i = c_i$ if $c_i$ is
-in $k$ highest(in terms of absolute value) elements of $c$, otherwise $\beta_i = 0$. Let's assume $H_k(c)$ - set of
+in $k$ highest(in terms of absolute value) elements of $c$, otherwise $\beta_i = 0$. Let us assume $H_k(c)$ - set of
 solutions for this problem and $L > l$ - parameter of the optimizer. From that the following algorithm can be proposed:
 
 ### Algorithm 1
@@ -83,6 +83,26 @@ As far as linear regression is concerned:
 * $\nabla g(\beta) = -X^{'}(y-X\beta)$
 * $l$ - the highest eigenvalue of $X^{'}X$
 
+In terms of LAD (least absolute deviations) the original objective function needs to be modified as it is non-smooth:
+
+$$f(x;\tau) = \sup_{||w||_{\infty} \leq 1} \left(\langle Y-XB, w \rangle - \frac{\tau}{2} \cdot ||w||_2^2\right)$$
+
+Solution of function above can be denoted as $w^*$, where:
+
+$$w_i^* = \text{proj}_{[-1,1]}\left(\frac{r_i}{\tau}\right) = \text{proj}_{[-1,1]}\left(\frac{(Y-XB)_i}{\tau}\right)$$
+
+where:
+
+$$\text{proj}_{[a,b]}(x) = \begin{cases}
+a & \text{if } x < a \\
+x & \text{if } a \leq x \leq b \\
+b & \text{if } x > b
+\end{cases}$$
+
+Moreover:
+* $\nabla_\beta f(\beta;\tau) = -X^T w^*$
+* $l$ - the highest eigenvalue of $X^{'}X$ divided by $\tau$
+
 ### Experimental data
 
 For the sake of experiments, both synthetic and real data will be used.
@@ -113,7 +133,7 @@ The following examples are considered:
   means and having Euclidean Norm equal to 1.
 * Leukemia data[3] - the preprocessing process here is a little bit more complex:
     * All variables are standarized (zero means and unit Euclidean norm).
-    * 1000 features with highest (in terms of absolute value) correlation with response variable are selected.
+    * One thousand features with the highest (in terms of absolute value) correlation with response variable are selected.
     * Semisynthetic y is generated: $y = X\beta^0 + \epsilon$, where:
         * $\beta^0_i = 1$ if $i \leq 5$ else 0
         * $\epsilon \sim \mathcal{N}(0, \sigma^2)$ - sigma is chosen so SNR=7.
