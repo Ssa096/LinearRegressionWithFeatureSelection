@@ -3,86 +3,76 @@ from sklearn.datasets import load_diabetes
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Lasso
 import matplotlib.pyplot as plt
+from src.models import FOLeastSquares, FOLAD
+import openml
+np.random.seed(42)
 
 
-def gradient(X, y, beta):
-    return -X.T @ (y - X @ beta)
+def generate_data(n, p, k, method='1', rho=0.5):
+    error = np.random.normal(size=n)
+    if method == '1':
+        beta = np.zeros(p)
+        beta[np.round(np.linspace(0, p - 1, k)).astype(int)] = 1
+        cov = np.repeat(rho, p ** 2).reshape(p, p)
+        for row_idx in range(p):
+            for col_idx in range(p):
+                cov[row_idx, col_idx] = cov[row_idx, col_idx] ** np.abs(row_idx - col_idx)
+    elif method == '2':
+        cov = np.eye(p)
+        beta = np.array([1] * min(p, 5) + [0] * max(0, (p - 5)))
+    elif method == '3':
+        cov = np.eye(p)
+        beta = np.array([0.5 + 0.95 * i for i in range(min(p, 10))] + [0] * max(0, (p - 10)))
+    elif method == '4':
+        cov = np.eye(p)
+        beta = np.array([-10 + i * 4 for i in range(min(p, 6))] + [0] * max(0, (p - 6)))
+    X = np.random.multivariate_normal(np.zeros(p), cov, size=n)
+    y = X @ beta + error
+    return X, y
 
+def preprocess_diabetes_data():
+    X, y = load_diabetes(return_X_y=True, as_frame=True)
+    for i in range(10):
+        if i != 1:
+            X[f"{X.columns[i]}_pow"] = X[f"{X.columns[i]}"] ** 2
+        for j in range(i + 1, 10):
+            X[f"{X.columns[i]}_{X.columns[j]}"] = X[f"{X.columns[i]}"] * X[f"{X.columns[j]}"]
+    selected = np.arange(len(X))
+    np.random.shuffle(selected)
+    X = X.iloc[selected[:350], :]
+    y = y.iloc[selected[:350]]
+    X, y = X.to_numpy(), y.to_numpy()
+    X -= np.mean(X, axis=1).reshape(-1, 1)
+    X /= np.linalg.norm(X, axis=1).reshape(-1, 1)
+    return X, y
 
-def hard_thresholding(v, k):
-    idx = np.argsort(np.abs(v))[-k:]
-    w = np.zeros_like(v)
-    w[idx] = v[idx]
-    return w
-
-
-def iterative_hard_thresholding(X, y, k, L=None, epsilon=1e-4, max_iter=100):
-    n, p = X.shape
-    beta = np.zeros(p)
-    if L is None:
-        L = np.linalg.norm(X.T @ X, 2)
-
-    for _ in range(max_iter):
-        grad = gradient(X, y, beta)
-        beta_new = hard_thresholding(beta - (1 / L) * grad, k)
-        if np.abs(np.linalg.norm(X @ beta - y)**2 - np.linalg.norm(X @ beta_new - y)**2) < epsilon:
-            break
-        beta = beta_new
-
-    return beta
-
-
-def interpolated_hard_thresholding(X, y, k, L=None, epsilon=1e-4, max_iter=100):
-    n, p = X.shape
-    beta = np.zeros(p)
-    if L is None:
-        L = np.linalg.norm(X.T @ X, 2)
-
-    best_beta = beta.copy()
-    best_loss = np.inf
-
-    for _ in range(max_iter):
-        grad = gradient(X, y, beta)
-        eta = hard_thresholding(beta - (1 / L) * grad, k)
-
-        lambdas = np.linspace(0, 1, 20)
-        losses = [np.linalg.norm(y - X @ (l * eta + (1 - l) * beta))**2 / 2 for l in lambdas]
-        lambda_star = lambdas[np.argmin(losses)]
-
-        beta_new = lambda_star * eta + (1 - lambda_star) * beta
-
-        if np.abs(np.linalg.norm(X @ beta_new - y)**2 - np.linalg.norm(X @ beta - y)**2) < epsilon:
-            break
-
-        if losses[np.argmin(losses)] < best_loss:
-            best_beta = beta_new.copy()
-            best_loss = losses[np.argmin(losses)]
-
-        beta = beta_new
-
-    return beta
-
+def preprocess_leukemia_data():
+    dataset = openml.datasets.get_dataset(1104)
+    X, _, _, _ = dataset.get_data()
+    y = X['CLASS']
+    X = X.drop('CLASS', axis=1)
+    y = y.map({'ALL':1, 'AML':0})
+    X, y = X.to_numpy(), y.to_numpy()
+    X -= np.mean(X, axis=1).reshape(-1, 1)
+    X /= np.linalg.norm(X, axis=1).reshape(-1, 1)
+    corr = np.array([np.abs(np.corrcoef(X[:, i], y)[1][0]) for i in range(X.shape[1])])
+    cols = np.argsort(corr)[-1000:]
+    X = X[:, cols]
+    beta = np.array(995 * [0] + 5 * [1])
+    variance = np.var(X @ beta) / 7
+    error = np.random.normal(scale=np.sqrt(variance), size=len(y))
+    y = X @ beta + error
+    return X, y
 
 def run_lasso(X, y, alpha=0.1):
-    model = Lasso(alpha=alpha, fit_intercept=False, max_iter=100)
+    model = Lasso(alpha=alpha, fit_intercept=False)
     model.fit(X, y)
     return model.coef_
 
 
-def refine_with_least_squares(X, y, beta_sparse):
-    support = np.flatnonzero(beta_sparse)
-    if len(support) == 0:
-        return beta_sparse
-    X_sub = X[:, support]
-    beta_refined = np.linalg.pinv(X_sub.T @ X_sub) @ X_sub.T @ y
-    beta_final = np.zeros_like(beta_sparse)
-    beta_final[support] = beta_refined
-    return beta_final
-
-
 def evaluate_model(X, y, beta):
     pred = X @ beta
-    mse = np.mean((y - pred)**2)
+    mse = np.mean((y - pred) ** 2)
     sparsity = np.sum(beta != 0)
     return {"MSE": mse, "Non-zero coefficients": sparsity}
 
@@ -97,14 +87,19 @@ def plot_coefficients(betas, labels):
     plt.grid(True)
     plt.show()
 
+
 def evaluate_all_methods(X, y, k):
-    beta_iht = iterative_hard_thresholding(X, y, k, max_iter=100)
-    beta_interp = interpolated_hard_thresholding(X, y, k, max_iter=100)
+    model = FOLeastSquares(k=k, fit_intercept=False).fit(X, y)
+    beta_iht = model.beta_
+    model = FOLeastSquares(k=k, fit_intercept=False, method='interpolated').fit(X, y)
+    beta_interp = model.beta_
 
-    beta_iht_refined = refine_with_least_squares(X, y, beta_iht)
-    beta_interp_refined = refine_with_least_squares(X, y, beta_interp)
+    model = FOLeastSquares(k=k, fit_intercept=False, refine_least_squares=True).fit(X, y)
+    beta_iht_refined = model.beta_
+    model = FOLeastSquares(k=k, fit_intercept=False, method='interpolated', refine_least_squares=True).fit(X, y)
+    beta_interp_refined = model.beta_
 
-    beta_lasso = run_lasso(X, y, alpha=0.1)
+    beta_lasso = run_lasso(X, y)
 
     results = {
         "IHT (1st-order)": evaluate_model(X, y, beta_iht),
@@ -125,26 +120,34 @@ def evaluate_all_methods(X, y, k):
     return results, betas
 
 
-################
-# === Main === #
-################
+def main():
+    X, y = load_diabetes(return_X_y=True)
+    X = StandardScaler().fit_transform(X)
+    k = 5
 
-X, y = load_diabetes(return_X_y=True)
-X = StandardScaler().fit_transform(X)
-k = 5
+    # results_dict, betas_dict = evaluate_all_methods(X, y, k)
+    #
+    # sorted_results = sorted(results_dict.items(), key=lambda x: x[1]['MSE'])
+    # print(sorted_results)
+    #
+    # labels_ordered = [
+    #     "LASSO",
+    #     "IHT + Newton",
+    #     "Interpolated + Newton",
+    #     "IHT (1st-order)",
+    #     "Interpolated (1st-order)"
+    # ]
+    # betas_to_plot = [betas_dict[label] for label in labels_ordered]
+    # plot_coefficients(betas_to_plot, labels_ordered)
 
-results_dict, betas_dict = evaluate_all_methods(X, y, k)
+    # model = FOLAD(k=k, fit_intercept=False).fit(X, y)
 
-sorted_results = sorted(results_dict.items(), key=lambda x: x[1]['MSE'])
-print(sorted_results)
+    # generate_data(1000, 10, 5, method='4')
 
-labels_ordered = [
-    "LASSO",
-    "IHT + Newton",
-    "Interpolated + Newton",
-    "IHT (1st-order)",
-    "Interpolated (1st-order)"
-]
-betas_to_plot = [betas_dict[label] for label in labels_ordered]
+    # preprocess_diabetes_data()
 
-plot_coefficients(betas_to_plot, labels_ordered)
+    preprocess_leukemia_data()
+
+
+if __name__ == "__main__":
+    main()
