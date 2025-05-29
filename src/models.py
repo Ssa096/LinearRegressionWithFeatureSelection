@@ -18,7 +18,7 @@ class FOLeastSquares:
     """
 
     def __init__(self, k, L=None, method='iterative', fit_intercept=True, max_iter=1000, tol=0.0001,
-                 solver='auto', refine_least_squares=False):
+                 solver='auto', refine_least_squares=False, beta=None):
         self.k = k
         self.L = L
         self.method = method
@@ -27,8 +27,9 @@ class FOLeastSquares:
         self.tol = tol
         self.solver = solver
         self.refine_least_squares = refine_least_squares
-        self.beta_ = None
+        self.beta_ = beta
         self.intercept_ = None
+        self.iterations_ = None
 
     @staticmethod
     def _gradient(X, y, beta):
@@ -47,26 +48,31 @@ class FOLeastSquares:
         if self.L is None:
             self.L = np.linalg.norm(X.T @ X, 2)
 
-        for _ in range(self.max_iter):
+        for i in range(self.max_iter):
             grad = self._gradient(X, y, beta)
             beta_new = self._hard_thresholding(beta - (1 / self.L) * grad, self.k)
             if np.abs(np.linalg.norm(X @ beta - y) ** 2 - np.linalg.norm(X @ beta_new - y) ** 2) < self.tol:
+                self.iterations_ = i + 1
                 break
             beta = beta_new
 
+        self.iterations_ = self.max_iter if self.iterations_ is None else self.iterations_
         intercept = np.mean(y) - np.mean(X, axis=0) @ beta if self.fit_intercept else 0.0
 
         return beta, intercept
 
     def _interpolated_hard_thresholding(self, X, y):
         n, p = X.shape
-        beta = _generate_beta(p, self.k)
+        if self.beta_ is None:
+            beta = _generate_beta(p, self.k)
+        else:
+            beta = self.beta_
         if self.L is None:
             self.L = np.linalg.norm(X.T @ X, 2)
 
         best_loss = np.inf
 
-        for _ in range(self.max_iter):
+        for i in range(self.max_iter):
             grad = self._gradient(X, y, beta)
             eta = self._hard_thresholding(beta - (1 / self.L) * grad, self.k)
 
@@ -79,6 +85,7 @@ class FOLeastSquares:
             beta_new = lambda_star * eta + (1 - lambda_star) * beta
 
             if np.abs(np.linalg.norm(X @ beta_new - y) ** 2 - np.linalg.norm(X @ beta - y) ** 2) < self.tol:
+                self.iterations_ = i + 1
                 break
 
             curr_loss = np.linalg.norm(y - X @ (lambda_star * eta + (1 - lambda_star) * beta)) ** 2 / 2
@@ -86,6 +93,7 @@ class FOLeastSquares:
 
             beta = beta_new
 
+        self.iterations_ = self.max_iter if self.iterations_ is None else self.iterations_
         intercept = np.mean(y) - np.mean(X, axis=0) @ beta if self.fit_intercept else 0.0
 
         return beta, intercept

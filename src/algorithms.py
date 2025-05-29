@@ -1,15 +1,21 @@
 import numpy as np
 from sklearn.datasets import load_diabetes
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import Lasso
+from sklearn.linear_model import Lasso, LinearRegression
+from sklearn.feature_selection import RFE
 import matplotlib.pyplot as plt
 from src.models import FOLeastSquares, FOLAD
 import openml
+
 np.random.seed(42)
 
 
-def generate_data(n, p, k, method='1', rho=0.5):
-    error = np.random.normal(size=n)
+def calculate_error(y_true, y_pred):
+    return (np.linalg.norm(y_true - y_pred) / np.linalg.norm(y_true)) ** 2
+
+
+def generate_data(n, p, k, method='1', rho=0.5, num=10, snr=None):
+    y = []
     if method == '1':
         beta = np.zeros(p)
         beta[np.round(np.linspace(0, p - 1, k)).astype(int)] = 1
@@ -27,8 +33,15 @@ def generate_data(n, p, k, method='1', rho=0.5):
         cov = np.eye(p)
         beta = np.array([-10 + i * 4 for i in range(min(p, 6))] + [0] * max(0, (p - 6)))
     X = np.random.multivariate_normal(np.zeros(p), cov, size=n)
-    y = X @ beta + error
-    return X, y
+    sigma2 = 1 if snr is None else np.var(X @ beta) / snr
+    for _ in range(num):
+        error = np.random.normal(scale=sigma2, size=n)
+        y.append(X @ beta + error)
+    a = np.arange(n)
+    np.random.shuffle(a)
+    train, test = a[:int(n * 0.8)], a[int(n * 0.8):]
+    return X, y, beta, train, test
+
 
 def preprocess_diabetes_data():
     X, y = load_diabetes(return_X_y=True, as_frame=True)
@@ -46,12 +59,13 @@ def preprocess_diabetes_data():
     X /= np.linalg.norm(X, axis=1).reshape(-1, 1)
     return X, y
 
+
 def preprocess_leukemia_data():
     dataset = openml.datasets.get_dataset(1104)
     X, _, _, _ = dataset.get_data()
     y = X['CLASS']
     X = X.drop('CLASS', axis=1)
-    y = y.map({'ALL':1, 'AML':0})
+    y = y.map({'ALL': 1, 'AML': 0})
     X, y = X.to_numpy(), y.to_numpy()
     X -= np.mean(X, axis=1).reshape(-1, 1)
     X /= np.linalg.norm(X, axis=1).reshape(-1, 1)
@@ -62,7 +76,8 @@ def preprocess_leukemia_data():
     variance = np.var(X @ beta) / 7
     error = np.random.normal(scale=np.sqrt(variance), size=len(y))
     y = X @ beta + error
-    return X, y
+    return X, y, beta
+
 
 def run_lasso(X, y, alpha=0.1):
     model = Lasso(alpha=alpha, fit_intercept=False)
@@ -125,26 +140,26 @@ def main():
     X = StandardScaler().fit_transform(X)
     k = 5
 
-    # results_dict, betas_dict = evaluate_all_methods(X, y, k)
-    #
-    # sorted_results = sorted(results_dict.items(), key=lambda x: x[1]['MSE'])
-    # print(sorted_results)
-    #
-    # labels_ordered = [
-    #     "LASSO",
-    #     "IHT + Newton",
-    #     "Interpolated + Newton",
-    #     "IHT (1st-order)",
-    #     "Interpolated (1st-order)"
-    # ]
-    # betas_to_plot = [betas_dict[label] for label in labels_ordered]
-    # plot_coefficients(betas_to_plot, labels_ordered)
+    results_dict, betas_dict = evaluate_all_methods(X, y, k)
 
-    # model = FOLAD(k=k, fit_intercept=False).fit(X, y)
+    sorted_results = sorted(results_dict.items(), key=lambda x: x[1]['MSE'])
+    print(sorted_results)
 
-    # generate_data(1000, 10, 5, method='4')
+    labels_ordered = [
+        "LASSO",
+        "IHT + Newton",
+        "Interpolated + Newton",
+        "IHT (1st-order)",
+        "Interpolated (1st-order)"
+    ]
+    betas_to_plot = [betas_dict[label] for label in labels_ordered]
+    plot_coefficients(betas_to_plot, labels_ordered)
 
-    # preprocess_diabetes_data()
+    model = FOLAD(k=k, fit_intercept=False).fit(X, y)
+
+    generate_data(1000, 10, 5, method='4')
+
+    preprocess_diabetes_data()
 
     preprocess_leukemia_data()
 
