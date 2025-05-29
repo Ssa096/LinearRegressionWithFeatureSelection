@@ -1,13 +1,16 @@
-from src.algorithms import generate_data, preprocess_diabetes_data, preprocess_leukemia_data, calculate_error
-from src.models import FOLeastSquares, FOLAD
-import numpy as np
-from sklearn.model_selection import train_test_split, KFold
-from sklearn.linear_model import Lasso, LinearRegression
-from sklearn.feature_selection import RFECV
-import seaborn as sns
+"""
+Experiments for n being greater than p.
+"""
 import matplotlib.pyplot as plt
-import time
+import numpy as np
 import pandas as pd
+import seaborn as sns
+from sklearn.feature_selection import RFECV
+from sklearn.linear_model import Lasso, LinearRegression
+from sklearn.model_selection import train_test_split, KFold
+
+from src.models import FOLeastSquares
+from src.utils import generate_data, preprocess_diabetes_data, calculate_error, single_experiment
 
 np.random.seed(42)
 sns.set_style('whitegrid')
@@ -24,33 +27,7 @@ def experiment_1(runs_num=50):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     num_feat = X.shape[1]
     for k in [9, 20, 49, 57]:
-        print(f"k={k}")
-        scores, times, iterations = np.zeros(runs_num), np.zeros(runs_num), np.zeros(runs_num)
-        for i in range(runs_num):
-            print(f"Run {i + 1}/{runs_num}")
-            e = np.random.multivariate_normal(np.zeros(num_feat), np.eye(num_feat)) * min(1, i)
-            model = FOLeastSquares(k=k, method='interpolated', beta=e)
-            start_time = time.time()
-            model.fit(X_train, y_train)
-            end_time = time.time()
-            y_pred = model.predict(X_test)
-            scores[i] = calculate_error(y_test, y_pred)
-            times[i] = end_time - start_time
-            iterations[i] = model.iterations_
-        print(f"Lowest error for k={k}: {np.min(scores)}, achieved for i={np.argmin(scores)}")
-        x = np.arange(runs_num)
-        sns.lineplot(x=x, y=scores).set_title(f"Prediction error for k={k}")
-        plt.xlabel("Iterations")
-        plt.ylabel("Error")
-        plt.show()
-        sns.lineplot(x=x, y=times).set_title(f"Training time for k={k}")
-        plt.xlabel("Iterations")
-        plt.ylabel("Training time")
-        plt.show()
-        sns.lineplot(x=x, y=iterations).set_title(f"Iterations for k={k}")
-        plt.xlabel("Iterations")
-        plt.ylabel("Number of iterations")
-        plt.show()
+        single_experiment(k, runs_num, num_feat, X_train, y_train, X_test, y_test)
 
 
 def experiment_2(runs_num=10, n=500, p=100, k=10):
@@ -113,7 +90,7 @@ def experiment_2(runs_num=10, n=500, p=100, k=10):
 
 def main():
     experiment_1()
-    experiment_2(1)
+    experiment_2()
 
 
 if __name__ == '__main__':
