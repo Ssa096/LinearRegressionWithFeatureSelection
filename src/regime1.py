@@ -12,6 +12,8 @@ from sklearn.model_selection import train_test_split, KFold
 from models import FOLeastSquares
 from mio_solver import MIOSolver
 from utils import generate_data, preprocess_diabetes_data, calculate_error, single_experiment
+from stepwise import StepwiseSelection
+from sparsenet import SparseNetRegression
 
 np.random.seed(42)
 sns.set_style('whitegrid')
@@ -179,17 +181,24 @@ def experiment_2(runs_num=10, n=500, p=100, k=10):
                 nonzeros_lasso = np.count_nonzero(model_lasso.coef_)
                 
                 # 4. Stepwise regression
-                model_step = RFECV(LinearRegression(), cv=KFold(), scoring='neg_mean_squared_error')
+                model_step = StepwiseSelection()
                 model_step.fit(X_train, y_train)
                 y_pred_step = model_step.predict(X_test)
                 pred_error_step = calculate_error(true_signal_test, y_pred_step)
-                nonzeros_step = np.count_nonzero(model_step.support_)
+                nonzeros_step = np.count_nonzero(model_step.beta_)
+
+                # 5. SparseNet regression
+                model_sparse = SparseNetRegression()
+                model_sparse.fit(X_train, y_train)
+                y_pred_sparse = model_sparse.predict(X_test)
+                pred_error_sparse = calculate_error(true_signal_test, y_pred_sparse)
+                nonzeros_sparse = np.count_nonzero(model_sparse.coef_)
                 
                 # Append results
                 for method, pred_error, nonzeros in zip(
-                    ['First-order', 'MIO', 'Lasso', 'Stepwise'],
-                    [pred_error_fo, pred_error_mio, pred_error_lasso, pred_error_step],
-                    [nonzeros_fo, nonzeros_mio, nonzeros_lasso, nonzeros_step]
+                    ['First-order', 'MIO', 'Lasso', 'Stepwise', "SparseNet"],
+                    [pred_error_fo, pred_error_mio, pred_error_lasso, pred_error_step, pred_error_sparse],
+                    [nonzeros_fo, nonzeros_mio, nonzeros_lasso, nonzeros_step, nonzeros_sparse]
                 ):
                     df.append({
                         'Method': method,
