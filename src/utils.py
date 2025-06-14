@@ -9,7 +9,8 @@ import openml
 import seaborn as sns
 from sklearn.datasets import load_diabetes
 
-from src.models import FOLeastSquares
+from models import FOLeastSquares
+from mio_solver import MIOSolver
 
 np.random.seed(42)
 
@@ -115,7 +116,7 @@ def preprocess_leukemia_data():
     return X, y, beta
 
 
-def single_experiment(k, runs_num, num_feat, X_train, y_train, X_test, y_test, snr=None):
+def single_experiment(k, runs_num, num_feat, X_train, y_train, X_test, y_test, snr=None, results=None):
     """
     Single iterations of experiment on First Order only.
     :param k: Number of relevant features.
@@ -126,9 +127,12 @@ def single_experiment(k, runs_num, num_feat, X_train, y_train, X_test, y_test, s
     :param X_test: Explanatory test variables.
     :param y_test: Target test variable.
     :param snr: Signal-to-noise ratio. If None, then variance of generated data is 1.
+    :param results: List to save results in.
     """
     print(f"k={k}")
     scores, times, iterations = np.zeros(runs_num), np.zeros(runs_num), np.zeros(runs_num)
+    fo_results = []
+    
     for i in range(runs_num):
         print(f"Run {i + 1}/{runs_num}")
         e = np.random.multivariate_normal(np.zeros(num_feat), np.eye(num_feat)) * min(1, i)
@@ -138,8 +142,58 @@ def single_experiment(k, runs_num, num_feat, X_train, y_train, X_test, y_test, s
         end_time = time.time()
         y_pred = model.predict(X_test)
         scores[i] = calculate_error(y_test, y_pred)
+
+        y_pred = model.predict(X_train)
+        obj_val = 0.5 * np.sum((y_train - y_pred)**2)
         times[i] = end_time - start_time
         iterations[i] = model.iterations_
+
+        fo_results.append({
+            'beta': model.beta_,
+            'obj_val': obj_val,
+            'score': scores[i],
+            'time': times[i]
+        })
+
+    best_fo = min(fo_results, key=lambda x: x['obj_val'])
+    
+    # (b) MIO cold start
+    mio_cold = MIOSolver(k=k, time_limit=500)
+    mio_cold.fit(X_train, y_train)
+    obj_val_cold = mio_cold.obj_value_
+    
+    
+    # (c) MIO warm start
+    mio_warm = MIOSolver(k=k, time_limit=500, warm_start_beta=best_fo['beta'])
+    mio_warm.fit(X_train, y_train)
+    obj_val_warm = mio_warm.obj_value_
+    
+    #relative accuracies
+    all_objs = [best_fo['obj_val'], obj_val_cold, obj_val_warm]
+    best_obj = min(all_objs)
+
+    rel_acc_fo = (best_fo['obj_val'] - best_obj) / best_obj
+    rel_acc_cold = (obj_val_cold- best_obj) / best_obj
+    rel_acc_warm = (obj_val_warm - best_obj) / best_obj
+    
+    results.append({
+        'k': k,
+        'Method': 'First-order',
+        'Accuracy': rel_acc_fo,
+        'Time': best_fo['time']
+    })
+    results.append({
+        'k': k,
+        'Method': 'MIO Cold Start',
+        'Accuracy': rel_acc_cold,
+        'Time': mio_cold.time_
+    })
+    results.append({
+        'k': k,
+        'Method': 'MIO Warm Start',
+        'Accuracy': rel_acc_warm,
+        'Time': mio_warm.time_
+    })
     print(f"Lowest error for k={k}: {np.min(scores)}, achieved for i={np.argmin(scores)}")
     x = np.arange(runs_num)
     sns.lineplot(x=x, y=scores).set_title(f"Prediction error for k={k} and SNR={snr}")
@@ -154,3 +208,5 @@ def single_experiment(k, runs_num, num_feat, X_train, y_train, X_test, y_test, s
     plt.xlabel("Iterations")
     plt.ylabel("Number of iterations")
     plt.show()
+    
+    return results
